@@ -153,10 +153,50 @@ def main():
     parser.add_argument('--source', choices=['gutenberg', 'openlibrary', 'all'], 
                        default='all', help='Source to search (default: all)')
     parser.add_argument('--download', type=int, metavar='ID', 
-                       help='Download book by Project Gutenberg ID')
+                       help='Download book by Project Gutenberg ID or search result index')
     
     args = parser.parse_args()
     
+    # If download is specified with search terms, treat it as result index
+    if args.download and (args.title or args.author):
+        gutenberg_books = []
+        openlibrary_books = []
+        
+        if args.source in ['gutenberg', 'all']:
+            gutenberg_books = search_project_gutenberg(args.title, args.author)
+            display_gutenberg_results(gutenberg_books)
+        
+        if args.source in ['openlibrary', 'all']:
+            openlibrary_books = search_open_library(args.title, args.author)
+            display_openlibrary_results(openlibrary_books)
+        
+        # Try to download from the specified index
+        if args.source == 'gutenberg' and gutenberg_books:
+            if 1 <= args.download <= len(gutenberg_books):
+                book = gutenberg_books[args.download - 1]
+                book_id = book.get('id')
+                if book.get('formats', {}).get('application/epub+zip'):
+                    download_from_gutenberg(book_id)
+                else:
+                    print(f"EPUB not available for book {args.download}")
+            else:
+                print(f"Invalid index. Choose between 1 and {len(gutenberg_books)}")
+        elif args.source == 'openlibrary':
+            print("Direct download from Open Library is not supported yet.")
+        elif args.source == 'all':
+            total_books = len(gutenberg_books)
+            if 1 <= args.download <= total_books:
+                book = gutenberg_books[args.download - 1]
+                book_id = book.get('id')
+                if book.get('formats', {}).get('application/epub+zip'):
+                    download_from_gutenberg(book_id)
+                else:
+                    print(f"EPUB not available for book {args.download}")
+            else:
+                print(f"Invalid index. Choose between 1 and {total_books} (only Project Gutenberg books can be downloaded)")
+        return
+    
+    # If download is specified without search terms, treat it as direct Project Gutenberg ID
     if args.download:
         download_from_gutenberg(args.download)
         return
@@ -172,7 +212,9 @@ def main():
         openlibrary_books = search_open_library(args.title, args.author)
         display_openlibrary_results(openlibrary_books)
     
-    print("\nTo download a book from Project Gutenberg, use: python books_finder.py --download <ID>")
+    print("\nTo download a book:")
+    print("- From search results: python books_finder.py --title 'title' --author 'author' --download <index>")
+    print("- By Project Gutenberg ID: python books_finder.py --download <ID>")
 
 if __name__ == "__main__":
     main()
