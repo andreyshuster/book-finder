@@ -113,10 +113,37 @@ def display_openlibrary_results(books):
         print(f"   First published: {first_publish_year}")
         print()
 
+def get_book_info(book_id):
+    """Get book information from Project Gutenberg API"""
+    try:
+        response = requests.get(f"https://gutendex.com/books/{book_id}")
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException:
+        return None
+
+def sanitize_filename(text):
+    """Remove invalid characters from filename"""
+    import re
+    return re.sub(r'[<>:"/\\|?*]', '', text).strip()
+
 def download_from_gutenberg(book_id):
     """Download EPUB from Project Gutenberg by book ID"""
+    book_info = get_book_info(book_id)
+    
+    if book_info:
+        title = book_info.get('title', 'Unknown Title')
+        authors = book_info.get('authors', [])
+        author_name = authors[0]['name'] if authors else 'Unknown Author'
+        
+        # Create filename: Author - Title.epub
+        safe_author = sanitize_filename(author_name)
+        safe_title = sanitize_filename(title)
+        filename = f"{safe_author} - {safe_title}.epub"
+    else:
+        filename = f"gutenberg_{book_id}.epub"
+    
     url = f"https://www.gutenberg.org/ebooks/{book_id}.epub.noimages"
-    filename = f"gutenberg_{book_id}.epub"
     return download_epub(url, filename)
 
 def main():
